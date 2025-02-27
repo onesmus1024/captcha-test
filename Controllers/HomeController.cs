@@ -1,31 +1,40 @@
-using System.Diagnostics;
+// Copyright © BEN ABT - all rights reserved
+// https://schwabencode.com
+
+using System.Net;
 using Microsoft.AspNetCore.Mvc;
-using captcha_test.Models;
+using captcha_test;
+
+
 
 namespace captcha_test.Controllers;
 
-public class HomeController : Controller
+    
+public class HomeController(CloudflareTurnstileProvider cloudflareTurnstileProvider) : Controller
 {
-    private readonly ILogger<HomeController> _logger;
+    [HttpGet]
+    public IActionResult Index() => View();
 
-    public HomeController(ILogger<HomeController> logger)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Index(PostSampleSubmitModel submitModel,
+        [FromForm(Name = "cf-turnstile-response")] string turnstileToken)
     {
-        _logger = logger;
-    }
+        // read users ip address 
+        // proxy? => https://learn.microsoft.com/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-8.0&WT.mc_id=DT-MVP-5001507
+        IPAddress? userIP = Request.HttpContext.Connection.RemoteIpAddress;
 
-    public IActionResult Index()
-    {
+        // verify token
+        CloudflareTurnstileVerifyResult cftResult = await cloudflareTurnstileProvider
+            .Verify(turnstileToken, userIpAddress: userIP);
+
+        // in a productive environment you can implement this as action filter
+
+        // present result
+        ViewBag.Result = cftResult;
+
         return View();
-    }
-
-    public IActionResult Privacy()
-    {
-        return View();
-    }
-
-    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public IActionResult Error()
-    {
-        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
 }
+
+public record class PostSampleSubmitModel(string SampleInput);
